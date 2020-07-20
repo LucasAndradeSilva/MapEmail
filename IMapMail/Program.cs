@@ -21,10 +21,20 @@ namespace IMapMail
 {
     class Program
     {
-        public static IConfiguration _Configuration;
+        public static IConfigurationRoot _Configuration;
         static void Main(string[] args)
         {
-           
+            var builder = new ConfigurationBuilder()
+               .SetBasePath(Directory.GetCurrentDirectory())
+               .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)              
+               .AddEnvironmentVariables();
+
+            IConfigurationRoot configuration = builder.Build();
+            var mySettingsConfig = new MySettingsConfig();
+            configuration.GetSection("MySettings").Bind(mySettingsConfig);
+
+            _Configuration = configuration;
+
             Console.WriteLine("==============================");
             Console.WriteLine("===== IMAP MAIL INICIADO =====");
             Console.WriteLine("==============================");
@@ -50,7 +60,7 @@ namespace IMapMail
                 //Delete Emails
                 var services = new DBService();
                 var Emails = JsonConvert.SerializeObject(ListEmails);
-                services.GravaEmails(Emails);
+                services.GravaEmails(Emails,_Configuration);
                 Console.Clear();
             }
            
@@ -122,6 +132,7 @@ namespace IMapMail
                         emails.Html = message.HtmlBody;
                         emails.Body = message.TextBody;
                         emails.CC = message.Cc;
+                        emails.CaminhoAnexos = new List<string>();
 
                         foreach (var attachment in message.Attachments)
                         {
@@ -133,19 +144,21 @@ namespace IMapMail
                                 if (string.IsNullOrEmpty(fileName))
                                     fileName = "attached-message.eml";
 
-                                using (var stream = File.Create(ConfigurationManager.AppSettings["Folder"] + email + "_" + fileName))
+                                using (var stream = File.Create(_Configuration.GetSection("Folder").Value+mail.Id  + "_" + fileName))
                                     rfc822.Message.WriteTo(stream);
                             }
                             else
-                            {
+                            {                                
                                 var part = (MimePart)attachment;
                                 var fileName = part.FileName;
-                                var caminho = ConfigurationManager.AppSettings["Folder"];
-                                using (var stream = File.Create(caminho+mail.Id+"_"+fileName))
+                                var caminho = _Configuration.GetSection("Folder").Value;
+                                caminho += (mail.Id + "_" + fileName).Replace(" ","");
+                                emails.CaminhoAnexos.Add(caminho);
+                                using (var stream = File.Create(caminho))
                                     part.Content.DecodeTo(stream);
                             }
                         }
-                     
+                        
                         allMessages.Add(emails);
                         i++;
                     }

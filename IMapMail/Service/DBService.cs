@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.SqlClient;
@@ -8,9 +9,9 @@ namespace IMapMail.Service
 {
     public class DBService
     {
-        public string GravaEmails(string Emails)
+        public string GravaEmails(string Emails, IConfigurationRoot configuration)
         {
-            var con = new SqlConnection(ConfigurationManager.AppSettings["ConnectionString"]);
+            var con = new SqlConnection(configuration.GetSection("ConnectionString").Value);
             var cmd = new SqlCommand("P_GuardaEmail", con) { CommandType = System.Data.CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@json", Emails);
 
