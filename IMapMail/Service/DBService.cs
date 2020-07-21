@@ -10,8 +10,8 @@ namespace IMapMail.Service
     public class DBService
     {
         public string GravaEmails(string Emails, IConfigurationRoot configuration)
-        {
-            var con = new SqlConnection(configuration.GetSection("ConnectionString").Value);
+        {            
+            var con = new SqlConnection(configuration.GetSection("ConnectionStrings").Value);
             var cmd = new SqlCommand("P_GuardaEmail", con) { CommandType = System.Data.CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@json", Emails);
 
@@ -24,6 +24,8 @@ namespace IMapMail.Service
             }
             catch (Exception exe)
             {
+                Console.WriteLine("\nErro: " + exe.Message);
+                Console.ReadKey();
                 return "";
             }
             finally
