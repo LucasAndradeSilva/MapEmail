@@ -9,7 +9,7 @@ namespace IMapMail.Model
     {
         public string IdEmail { get; set; }
         public string Titulo { get; set; }
-        public string Data { get; set; }
+        public string DtHrEnvio { get; set; }
         public string De { get; set; }
         public string Para { get; set; }
         //public  List<MimePart> Anexos { get; set; }

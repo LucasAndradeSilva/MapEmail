@@ -40,27 +40,38 @@ namespace IMapMail
             Console.WriteLine("===== IMAP MAIL INICIADO =====");
             Console.WriteLine("==============================");
 
-            var email = "";
-            var senha = "";
+            Parametros parametros = new Parametros();
+            parametros.Email = "";
+            parametros.Senha = "";
             if (args.Length == 0)
             {
                 Console.WriteLine("");
                 Console.WriteLine("Informe seu email: ");
-                email = Console.ReadLine();
+                parametros.Email = Console.ReadLine();
                 Console.WriteLine("");
                 Console.WriteLine("Informe sua senha: ");
-                senha = Console.ReadLine();
+                parametros.Senha = Console.ReadLine();
+                Console.WriteLine("");
+                Console.WriteLine("Deseja Deletar os Emails? (S/N)");
+                var result = Console.ReadLine();
+                if (result == "S" || result == "s") parametros.ApagaEmails = true;
+                else parametros.ApagaEmails = Convert.ToBoolean(_Configuration.GetSection("Pagar_Emails").Value);
+                Console.WriteLine("");
+                Console.WriteLine("Informe o Caminho que deseja salver os Anexos: ");
+                parametros.Caminho = Console.ReadLine();
             }
             else
             {
-                email = args[0];
-                senha = args[1];
+                parametros.Email = args[0];
+                parametros.Senha = args[1];
+                parametros.ApagaEmails = Convert.ToBoolean(args[2]);
+                parametros.Caminho = args[3];
             }
 
             Console.Clear();
 
             //Get Emails
-            var ListEmails = GetMails(email, senha);
+            var ListEmails = GetMails(parametros);
 
             if(ListEmails != null && ListEmails.Count > 0)
             {
@@ -82,7 +93,7 @@ namespace IMapMail
             Console.ReadKey();
         }
 
-        public static List<object> GetMails(string email, string senha)
+        public static List<object> GetMails(Parametros parametros)
         {
             try
             {
@@ -93,7 +104,7 @@ namespace IMapMail
                     // Connect to the server                    
                     Console.WriteLine("\n Conectando Aguarde...");
                     client.Connect("mail.visaogrupo.com.br", 143, false); //Visao                    
-                    client.Authenticate(email.Replace(" ", ""), senha);
+                    client.Authenticate(parametros.Email.Replace(" ", ""), parametros.Senha.Replace(" ", ""));
                     Console.Clear();
                     if (!client.IsConnected)
                     {
@@ -117,7 +128,7 @@ namespace IMapMail
                     if (messageCount > 0)
                     {
                         var mails = client.Inbox.Search(SearchQuery.All);
-                        var Baixados = BaixaEmails(client, mails, messageCount,"Caixa de Entrada",client.Inbox);
+                        var Baixados = BaixaEmails(client, mails, messageCount,"Caixa de Entrada",client.Inbox, parametros);
                         if (messageCount > 0) allMessages.AddRange(Baixados);
                     }                    
                     client.Inbox.Close();
@@ -127,7 +138,7 @@ namespace IMapMail
                     if(Folders != null)
                     {
                         messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Arquivados", Folders);
+                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Arquivados", Folders, parametros);
                         if (messageCount > 0) allMessages.AddRange(Baixados);
                         Folders.Close();
                     }
@@ -137,7 +148,7 @@ namespace IMapMail
                     if (Folders != null)
                     {
                         messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Lixeira", Folders);
+                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Lixeira", Folders, parametros);
                         if (messageCount > 0) allMessages.AddRange(Baixados);
                         Folders.Close();
                     }
@@ -147,7 +158,7 @@ namespace IMapMail
                     if (Folders != null)
                     {
                         messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount,"Importante", Folders);
+                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount,"Importante", Folders, parametros);
                         if (messageCount > 0) allMessages.AddRange(Baixados);
                         Folders.Close();
                     }
@@ -157,7 +168,7 @@ namespace IMapMail
                     if (Folders != null)
                     {
                         messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Enviados", Folders);
+                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Enviados", Folders, parametros);
                         if(messageCount > 0) allMessages.AddRange(Baixados);
                         Folders.Close();
                     }
@@ -180,13 +191,7 @@ namespace IMapMail
 
         }
 
-        public static void DeleteEmails(ImapClient client, IList<UniqueId> emails, IMailFolder folder)
-        {
-            folder.AddFlags(emails, MessageFlags.Deleted, false);
-            folder.Expunge();         
-        }
-
-        public static List<object> BaixaEmails(ImapClient client, IList<UniqueId> mails, int count, string pasta, IMailFolder folder)
+        public static List<object> BaixaEmails(ImapClient client, IList<UniqueId> mails, int count, string pasta, IMailFolder folder, Parametros parametros)
         {           
             if(count > 0)
             {
@@ -195,28 +200,30 @@ namespace IMapMail
                 Thread.Sleep(3000);
 
                 List<object> allMessages = new List<object>();
-
+                IList<UniqueId> UniMails = new List<UniqueId>();
                 var i = 1;
                 var ii = 1;
                 double porcentagem = 0;
                 var qtdGrava = 0;
                 foreach (var mail in mails)               
                 {
-                    porcentagem = (i / count);//(double)(i / count)*100;
+                    porcentagem = (i / count);
                     if (ii == 50)
                     {
                         ii = 1;
                         Console.Clear();
                         Console.WriteLine(" Fazendo Downloads da(o) " + pasta + "...\n");
-                        Console.SetCursorPosition(ii, 1);
-                        Console.Write("█");
-                        Console.Write(porcentagem + "/100");
+                        Console.SetCursorPosition(1, 1);
+                        Console.Write(i + "/" + count + " - " + porcentagem + "/100%");
+                        Console.SetCursorPosition(ii, 2);
+                        Console.Write("█");                        
                     }
                     else
                     {
-                        Console.SetCursorPosition(ii, 1);
-                        Console.Write("█");
-                        Console.Write(porcentagem + "/100%");
+                        Console.SetCursorPosition(1, 1);
+                        Console.Write(i+"/"+count+" - "+porcentagem + "/100%");
+                        Console.SetCursorPosition(ii, 2);
+                        Console.Write("█");                       
                     }
                     
                     var message = folder.GetMessage(mail);                   
@@ -224,7 +231,7 @@ namespace IMapMail
                     Emails emails = new Emails();
                     emails.IdEmail = message.MessageId;
                     emails.Titulo = message.Subject;
-                    emails.Data = message.Date.ToString();
+                    emails.DtHrEnvio = message.Date.Date.ToString("dd/MM/yyyy");
                     emails.De = message.From[0].ToString().Contains("<") ? message.From[0].ToString()?.Split('<')?[1]?.Replace(">", "") : message.From[0].ToString();
                     emails.Para = message.To.ToString().Contains("<") ? message.To.ToString()?.Split('<')?[1]?.Replace(">", "") : message.To.ToString();
                     emails.Html = message.HtmlBody;
@@ -247,7 +254,8 @@ namespace IMapMail
                                 fileName = "attached-message.eml";
 
                             fileName = fileName.Replace("/", "_");
-                            var caminho = _Configuration.GetSection("Folder").Value;
+                            var caminho = string.IsNullOrEmpty(parametros.Caminho) ? _Configuration.GetSection("Folder").Value : parametros.Caminho;
+                            caminho = caminho.EndsWith("//") ? caminho : caminho+"//";
                             caminho += (mail.Id + "_" + fileName).Replace(" ", "");
                             emails.CaminhoAnexos += emails.CaminhoAnexos.Contains(";") ? "; " + caminho : caminho;
                             using (var stream = File.Create(caminho))
@@ -257,7 +265,8 @@ namespace IMapMail
                         {
                             var part = (MimePart)attachment;
                             var fileName = part.FileName.Replace("/", "_");
-                            var caminho = _Configuration.GetSection("Folder").Value;
+                            var caminho = string.IsNullOrEmpty(parametros.Caminho) ? _Configuration.GetSection("Folder").Value : parametros.Caminho;
+                            caminho = caminho.EndsWith("//") ? caminho : caminho + "//";
                             caminho += (mail.Id + "_" + fileName).Replace(" ", "");
                             emails.CaminhoAnexos = "";
                             emails.CaminhoAnexos += emails.CaminhoAnexos.Contains(";") ? "; " + caminho : caminho;
@@ -267,17 +276,21 @@ namespace IMapMail
                     }
 
                     allMessages.Add(emails);
+                    UniMails.Add(mail);
                     i++;
                     ii++;
                     qtdGrava++;
                     if(qtdGrava == 10)
                     {
+                        qtdGrava = 0;                       
                         GravaBanco(allMessages);
+                        if(parametros.ApagaEmails) DeleteEmails(client, UniMails, folder);
                         allMessages.Clear();
+                        UniMails.Clear();
                     }
                 }
 
-                //DeleteEmails(client, mails, folder);
+                if (parametros.ApagaEmails) DeleteEmails(client, mails, folder);
                 Console.Clear();
                 return allMessages;
             }
@@ -285,14 +298,18 @@ namespace IMapMail
             return null;                      
         }
 
-
         public static void GravaBanco(List<object> ListEmails) 
         {                      
             //Salvando Emails
             var services = new DBService();
             var Emails = JsonConvert.SerializeObject(ListEmails);
-            services.GravaEmails(Emails, _Configuration);
-            Console.Clear();            
-        } 
+            services.GravaEmails(Emails, _Configuration);                  
+        }
+
+        public static void DeleteEmails(ImapClient client, IList<UniqueId> emails, IMailFolder folder)
+        {
+            folder.AddFlags(emails, MessageFlags.Deleted, false);
+            folder.Expunge();
+        }
     }
 }
