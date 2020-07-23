@@ -10,5 +10,6 @@ namespace IMapMail.Model
         public string Senha { get; set; }
         public bool ApagaEmails { get; set; }
         public string Caminho { get; set; }
+        public string Pasta { get; set; }
     }
 }

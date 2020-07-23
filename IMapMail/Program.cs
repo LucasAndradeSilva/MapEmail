@@ -59,13 +59,17 @@ namespace IMapMail
                 Console.WriteLine("");
                 Console.WriteLine("Informe o Caminho que deseja salver os Anexos: ");
                 parametros.Caminho = Console.ReadLine();
+                Console.WriteLine("");
+                Console.WriteLine("Digite a pasta que você deseja baixar: ");
+                parametros.Pasta = Console.ReadLine();
             }
             else
             {
-                parametros.Email = args[0];
-                parametros.Senha = args[1];
+                parametros.Email = string.IsNullOrEmpty(args[0]) ? "" : args[0];
+                parametros.Senha = string.IsNullOrEmpty(args[1]) ? "" : args[1];
                 parametros.ApagaEmails = Convert.ToBoolean(args[2]);
-                parametros.Caminho = args[3];
+                parametros.Caminho = string.IsNullOrEmpty(args[3]) ? "" : args[3];
+                parametros.Pasta = string.IsNullOrEmpty(args[4]) ? "" : args[4];
             }
 
             Console.Clear();
@@ -122,57 +126,33 @@ namespace IMapMail
                     Thread.Sleep(3000);
 
                     List<object> allMessages = new List<object>();
-
-                    client.Inbox.Open(FolderAccess.ReadWrite);     
-                    int messageCount = client.Inbox.Count;
-                    if (messageCount > 0)
+                    int messageCount = 0;
+                                     
+                    if (string.IsNullOrEmpty(parametros.Pasta))
                     {
-                        var mails = client.Inbox.Search(SearchQuery.All);
-                        var Baixados = BaixaEmails(client, mails, messageCount,"Caixa de Entrada",client.Inbox, parametros);
-                        if (messageCount > 0) allMessages.AddRange(Baixados);
-                    }                    
-                    client.Inbox.Close();
-
-                    var Folders = client.GetFolder(SpecialFolder.Archive);
-                    Folders?.Open(FolderAccess.ReadWrite);
-                    if(Folders != null)
-                    {
-                        messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Arquivados", Folders, parametros);
-                        if (messageCount > 0) allMessages.AddRange(Baixados);
-                        Folders.Close();
+                        client.Inbox.Open(FolderAccess.ReadWrite);
+                        messageCount = client.Inbox.Count;
+                        if (messageCount > 0)
+                        {
+                            var mails = client.Inbox.Search(SearchQuery.All);
+                            var Baixados = BaixaEmails(client, mails, messageCount, client.Inbox.FullName, client.Inbox, parametros);
+                            if (messageCount > 0) allMessages.AddRange(Baixados);
+                        }
+                        client.Inbox.Close();
                     }
-
-                    Folders = client.GetFolder(SpecialFolder.Drafts);
-                    Folders?.Open(FolderAccess.ReadWrite);
-                    if (Folders != null)
+                    else
                     {
-                        messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Lixeira", Folders, parametros);
-                        if (messageCount > 0) allMessages.AddRange(Baixados);
-                        Folders.Close();
+                        var Folders = client.GetFolder(parametros.Pasta);
+                        Folders?.Open(FolderAccess.ReadWrite);
+                        if (Folders != null)
+                        {
+                            messageCount += Folders != null ? Folders.Count : messageCount;
+                            var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, Folders.FullName , Folders, parametros);
+                            if (messageCount > 0) allMessages.AddRange(Baixados);
+                            Folders.Close();
+                        }
                     }
-
-                    Folders = client.GetFolder(SpecialFolder.Important);
-                    Folders?.Open(FolderAccess.ReadWrite);
-                    if (Folders != null)
-                    {
-                        messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount,"Importante", Folders, parametros);
-                        if (messageCount > 0) allMessages.AddRange(Baixados);
-                        Folders.Close();
-                    }
-
-                    Folders = client.GetFolder(SpecialFolder.Sent);
-                    Folders?.Open(FolderAccess.ReadWrite);
-                    if (Folders != null)
-                    {
-                        messageCount += Folders != null ? Folders.Count : messageCount;
-                        var Baixados = BaixaEmails(client, Folders.Search(SearchQuery.All), messageCount, "Enviados", Folders, parametros);
-                        if(messageCount > 0) allMessages.AddRange(Baixados);
-                        Folders.Close();
-                    }
-
+                                   
                     Console.Clear();
                     if (messageCount > 0) Console.WriteLine("\n Foram Baixados " + messageCount.ToString() + " email(s)");
                     else Console.WriteLine("\n Nenhuma Email Encontrado!");
@@ -201,28 +181,29 @@ namespace IMapMail
 
                 List<object> allMessages = new List<object>();
                 IList<UniqueId> UniMails = new List<UniqueId>();
-                var i = 1;
-                var ii = 1;
+                double i = 1.0;
+                double ii = 1.0;
                 double porcentagem = 0;
                 var qtdGrava = 0;
-                foreach (var mail in mails)               
+                foreach (var mail 
+                    in mails)               
                 {
-                    porcentagem = (i / count);
+                    porcentagem = (i/count)*100;
                     if (ii == 50)
                     {
                         ii = 1;
                         Console.Clear();
                         Console.WriteLine(" Fazendo Downloads da(o) " + pasta + "...\n");
                         Console.SetCursorPosition(1, 1);
-                        Console.Write(i + "/" + count + " - " + porcentagem + "/100%");
-                        Console.SetCursorPosition(ii, 2);
+                        Console.Write(i + "/" + count+" - "+ Convert.ToInt32(porcentagem) +"/100%");
+                        Console.SetCursorPosition(Convert.ToInt32(ii), 2);
                         Console.Write("█");                        
                     }
                     else
                     {
                         Console.SetCursorPosition(1, 1);
-                        Console.Write(i+"/"+count+" - "+porcentagem + "/100%");
-                        Console.SetCursorPosition(ii, 2);
+                        Console.Write(i + "/" + count + " - " + Convert.ToInt32(porcentagem) + "/100%");
+                        Console.SetCursorPosition(Convert.ToInt32(ii), 2);
                         Console.Write("█");                       
                     }
                     
@@ -253,7 +234,7 @@ namespace IMapMail
                             if (string.IsNullOrEmpty(fileName))
                                 fileName = "attached-message.eml";
 
-                            fileName = fileName.Replace("/", "_");
+                            fileName = fileName.Replace("/", "_").Replace(":", "").Replace("?", "").Replace("*", "").Replace(",", "").Replace("&", "").Replace("!", "").Replace("%", "").Replace("\"","").Replace("|", "").Replace("<", "").Replace(">", "");  
                             var caminho = string.IsNullOrEmpty(parametros.Caminho) ? _Configuration.GetSection("Folder").Value : parametros.Caminho;
                             caminho = caminho.EndsWith("//") ? caminho : caminho+"//";
                             caminho += (mail.Id + "_" + fileName).Replace(" ", "");
@@ -264,7 +245,7 @@ namespace IMapMail
                         else
                         {
                             var part = (MimePart)attachment;
-                            var fileName = part.FileName.Replace("/", "_");
+                            var fileName = part.FileName.Replace("/", "_").Replace(":", "").Replace("?", "").Replace("*", "").Replace(",", "").Replace("&", "").Replace("!", "").Replace("%", "").Replace("\"", "").Replace("|", "").Replace("<", "").Replace(">", "");
                             var caminho = string.IsNullOrEmpty(parametros.Caminho) ? _Configuration.GetSection("Folder").Value : parametros.Caminho;
                             caminho = caminho.EndsWith("//") ? caminho : caminho + "//";
                             caminho += (mail.Id + "_" + fileName).Replace(" ", "");
